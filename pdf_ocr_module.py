@@ -14,16 +14,18 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 class PDFOCR:
-    """PDF OCR处理器 - 基础版本"""
+    """PDF OCR处理器 - 改进版本（Sprint 2.2）"""
     
-    def __init__(self, lang='eng+chi_sim'):
+    def __init__(self, lang='eng+chi_sim', enable_preprocessing=True):
         """
         初始化OCR处理器
         
         Args:
             lang: OCR语言，默认英文+简体中文
+            enable_preprocessing: 是否启用图像预处理
         """
         self.lang = lang
+        self.enable_preprocessing = enable_preprocessing
         self._check_dependencies()
     
     def _check_dependencies(self):
@@ -197,6 +199,251 @@ class PDFOCR:
         except Exception as e:
             logger.error(f"批量提取文本时发生错误: {e}")
             return {}
+    
+    def analyze_scanned_document(self, pdf_path, sample_pages=3):
+        """
+        分析扫描件文档特征
+        
+        Args:
+            pdf_path: PDF文件路径
+            sample_pages: 采样页面数
+            
+        Returns:
+            dict: 分析结果
+        """
+        if not self.is_ocr_available():
+            logger.error("OCR功能不可用")
+            return {}
+        
+        try:
+            import PyPDF2
+            import pdf2image
+            from PIL import Image
+            import numpy as np
+            
+            pdf_path = Path(pdf_path)
+            if not pdf_path.exists():
+                logger.error(f"PDF文件不存在: {pdf_path}")
+                return {}
+            
+            # 获取PDF总页数
+            with open(pdf_path, 'rb') as f:
+                pdf_reader = PyPDF2.PdfReader(f)
+                total_pages = len(pdf_reader.pages)
+                sample_pages = min(sample_pages, total_pages)
+            
+            logger.info(f"分析扫描件特征: {pdf_path.name}")
+            logger.info(f"采样页面: {sample_pages}/{total_pages}")
+            
+            results = {
+                'pdf_name': pdf_path.name,
+                'total_pages': total_pages,
+                'sample_pages': sample_pages,
+                'is_scanned_probability': 0.0,
+                'detection_metrics': {},
+                'recommendation': ''
+            }
+            
+            # 检测指标
+            metrics = {
+                'text_density': 0.0,      # 文本密度
+                'image_quality': 0.0,     # 图像质量
+                'noise_level': 0.0,       # 噪声水平
+                'contrast_score': 0.0,    # 对比度评分
+            }
+            
+            page_samples = []
+            
+            # 采样分析
+            for i in range(sample_pages):
+                try:
+                    # 转换为图像
+                    images = pdf2image.convert_from_path(
+                        str(pdf_path),
+                        first_page=i + 1,
+                        last_page=i + 1,
+                        dpi=100  # 低分辨率用于分析
+                    )
+                    
+                    if not images:
+                        continue
+                    
+                    image = images[0]
+                    
+                    # 转换为灰度图
+                    gray_image = image.convert('L')
+                    img_array = np.array(gray_image)
+                    
+                    # 计算基础指标
+                    # 1. 文本密度（通过边缘检测近似）
+                    edges = np.abs(np.diff(img_array, axis=1)).mean()
+                    metrics['text_density'] += edges / 255.0
+                    
+                    # 2. 图像质量（通过方差）
+                    metrics['image_quality'] += np.var(img_array) / 10000.0
+                    
+                    # 3. 噪声水平（通过局部方差）
+                    local_var = np.var(img_array[:50, :50]) if img_array.shape[0] > 50 and img_array.shape[1] > 50 else 0
+                    metrics['noise_level'] += local_var / 1000.0
+                    
+                    # 4. 对比度评分
+                    min_val, max_val = img_array.min(), img_array.max()
+                    if max_val > min_val:
+                        metrics['contrast_score'] += (max_val - min_val) / 255.0
+                    
+                    page_samples.append(i)
+                    
+                except Exception as e:
+                    logger.warning(f"分析页面 {i + 1} 时出错: {e}")
+                    continue
+            
+            if page_samples:
+                # 计算平均指标
+                for key in metrics:
+                    metrics[key] /= len(page_samples)
+                
+                # 计算扫描件概率
+                # 文本密度低 + 图像质量高 = 可能是扫描件
+                text_density_score = 1.0 - min(metrics['text_density'], 1.0)
+                image_quality_score = min(metrics['image_quality'], 1.0)
+                
+                scanned_probability = (text_density_score * 0.6 + image_quality_score * 0.4)
+                
+                results['is_scanned_probability'] = round(scanned_probability, 3)
+                results['detection_metrics'] = {k: round(v, 3) for k, v in metrics.items()}
+                
+                # 生成建议
+                if scanned_probability > 0.7:
+                    results['recommendation'] = '高概率扫描件，建议使用OCR模式'
+                elif scanned_probability > 0.4:
+                    results['recommendation'] = '可能包含扫描页面，建议测试OCR'
+                else:
+                    results['recommendation'] = '可能是文本PDF，可直接处理'
+            
+            logger.info(f"扫描件分析完成:")
+            logger.info(f"  扫描件概率: {results['is_scanned_probability']:.1%}")
+            logger.info(f"  文本密度: {metrics['text_density']:.3f}")
+            logger.info(f"  图像质量: {metrics['image_quality']:.3f}")
+            logger.info(f"  建议: {results['recommendation']}")
+            
+            return results
+            
+        except Exception as e:
+            logger.error(f"分析扫描件特征时出错: {e}")
+            return {}
+    
+    def preprocess_image(self, image):
+        """
+        预处理图像以提高OCR准确性
+        
+        Args:
+            image: PIL Image对象
+            
+        Returns:
+            PIL Image: 预处理后的图像
+        """
+        if not self.enable_preprocessing:
+            return image
+        
+        try:
+            from PIL import Image, ImageFilter, ImageOps
+            import numpy as np
+            
+            logger.debug("开始图像预处理")
+            
+            # 1. 转换为灰度图
+            if image.mode != 'L':
+                gray_image = image.convert('L')
+            else:
+                gray_image = image
+            
+            # 2. 基础去噪（中值滤波）
+            try:
+                denoised = gray_image.filter(ImageFilter.MedianFilter(size=3))
+            except:
+                denoised = gray_image  # 如果失败，使用原图
+            
+            # 3. 增强对比度（直方图均衡化）
+            try:
+                enhanced = ImageOps.equalize(denoised)
+            except:
+                enhanced = denoised
+            
+            # 4. 二值化（自适应阈值）
+            try:
+                img_array = np.array(enhanced)
+                # 简单阈值处理
+                threshold = np.median(img_array)
+                binary_array = (img_array > threshold).astype(np.uint8) * 255
+                binary_image = Image.fromarray(binary_array)
+            except:
+                binary_image = enhanced
+            
+            logger.debug("图像预处理完成")
+            return binary_image
+            
+        except Exception as e:
+            logger.warning(f"图像预处理失败: {e}, 使用原图")
+            return image
+    
+    def extract_text_with_preprocessing(self, pdf_path, page_num):
+        """
+        提取文本（带预处理）
+        
+        Args:
+            pdf_path: PDF文件路径
+            page_num: 页面编号
+            
+        Returns:
+            str: 提取的文本
+        """
+        if not self.is_ocr_available():
+            logger.error("OCR功能不可用")
+            return ""
+        
+        try:
+            import pytesseract
+            import pdf2image
+            from PIL import Image
+            
+            pdf_path = Path(pdf_path)
+            
+            # 将PDF页面转换为图像
+            images = pdf2image.convert_from_path(
+                str(pdf_path),
+                first_page=page_num + 1,
+                last_page=page_num + 1,
+                dpi=200  # 较高分辨率用于OCR
+            )
+            
+            if not images:
+                logger.error("无法将PDF页面转换为图像")
+                return ""
+            
+            image = images[0]
+            
+            # 预处理图像
+            if self.enable_preprocessing:
+                processed_image = self.preprocess_image(image)
+                logger.debug(f"使用预处理图像进行OCR")
+            else:
+                processed_image = image
+                logger.debug(f"使用原始图像进行OCR")
+            
+            # OCR处理
+            text = pytesseract.image_to_string(processed_image, lang=self.lang)
+            
+            char_count = len(text)
+            logger.info(f"OCR完成: 第 {page_num + 1} 页，提取 {char_count} 字符")
+            
+            if char_count < 10:
+                logger.warning(f"提取文本较少，可能页面空白或OCR失败")
+            
+            return text.strip()
+            
+        except Exception as e:
+            logger.error(f"带预处理的OCR提取失败: {e}")
+            return ""
 
 def test_ocr_functionality():
     """测试OCR功能"""

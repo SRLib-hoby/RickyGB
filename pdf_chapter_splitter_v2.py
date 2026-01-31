@@ -50,54 +50,112 @@ class PDFSplitterV2:
         
         logger.info(f"每章节页数: {pages_per_chapter}")
     
-    def detect_pdf_type(self, pdf_path):
+    def detect_pdf_type(self, pdf_path, detailed=False):
         """
-        检测PDF类型：文本PDF或扫描件
+        检测PDF类型：文本PDF或扫描件（改进版本）
         
         Args:
             pdf_path: PDF文件路径
+            detailed: 是否返回详细分析
             
         Returns:
-            str: 'text'（文本PDF）, 'scanned'（扫描件）, 'unknown'（未知）
+            str 或 dict: 类型或详细分析结果
         """
         try:
             import PyPDF2
             
+            pdf_path = Path(pdf_path)
+            
             with open(pdf_path, 'rb') as file:
                 pdf_reader = PyPDF2.PdfReader(file)
+                total_pages = len(pdf_reader.pages)
                 
-                # 检查前几页是否有文本
-                sample_pages = min(3, len(pdf_reader.pages))
-                text_found = False
+                # 方法1: 检查文本提取
+                sample_pages = min(5, total_pages)
+                text_pages = 0
+                total_text_chars = 0
                 
                 for page_num in range(sample_pages):
                     try:
                         page = pdf_reader.pages[page_num]
                         text = page.extract_text()
-                        if text and len(text.strip()) > 10:  # 有意义的文本
-                            text_found = True
-                            break
+                        if text and len(text.strip()) > 5:
+                            text_pages += 1
+                            total_text_chars += len(text.strip())
                     except:
                         continue
                 
-                if text_found:
-                    logger.info(f"检测到文本PDF: {Path(pdf_path).name}")
-                    return 'text'
+                # 计算文本提取指标
+                text_page_ratio = text_pages / sample_pages if sample_pages > 0 else 0
+                avg_text_per_page = total_text_chars / text_pages if text_pages > 0 else 0
+                
+                # 方法2: 如果启用了OCR，使用扫描件分析
+                scanned_analysis = {}
+                if self.use_ocr and OCR_AVAILABLE:
+                    scanned_analysis = self.ocr_processor.analyze_scanned_document(pdf_path, sample_pages=3)
+                
+                # 综合判断
+                is_text_pdf = text_page_ratio > 0.7 or avg_text_per_page > 100
+                is_scanned = False
+                
+                if scanned_analysis and 'is_scanned_probability' in scanned_analysis:
+                    scanned_prob = scanned_analysis['is_scanned_probability']
+                    is_scanned = scanned_prob > 0.6
+                
+                # 生成结果
+                if detailed:
+                    result = {
+                        'pdf_name': pdf_path.name,
+                        'total_pages': total_pages,
+                        'sampled_pages': sample_pages,
+                        'text_page_ratio': round(text_page_ratio, 3),
+                        'avg_text_per_page': round(avg_text_per_page, 1),
+                        'is_text_pdf': is_text_pdf,
+                        'scanned_analysis': scanned_analysis,
+                        'detected_type': 'text' if is_text_pdf else ('scanned' if is_scanned else 'mixed/unknown'),
+                        'confidence': 'high' if (is_text_pdf or is_scanned) else 'low'
+                    }
+                    
+                    logger.info(f"详细PDF类型分析:")
+                    logger.info(f"  文件: {pdf_path.name}")
+                    logger.info(f"  总页数: {total_pages}")
+                    logger.info(f"  文本页面比例: {text_page_ratio:.1%}")
+                    logger.info(f"  平均文本长度: {avg_text_per_page:.0f} 字符")
+                    
+                    if scanned_analysis:
+                        logger.info(f"  扫描件概率: {scanned_analysis.get('is_scanned_probability', 0):.1%}")
+                        logger.info(f"  建议: {scanned_analysis.get('recommendation', '')}")
+                    
+                    logger.info(f"  检测类型: {result['detected_type']}")
+                    logger.info(f"  置信度: {result['confidence']}")
+                    
+                    return result
                 else:
-                    logger.info(f"可能是扫描件PDF: {Path(pdf_path).name}")
-                    return 'scanned'
+                    # 简单类型判断
+                    if is_text_pdf:
+                        detected_type = 'text'
+                        logger.info(f"检测到文本PDF: {pdf_path.name} (置信度: 高)")
+                    elif is_scanned:
+                        detected_type = 'scanned'
+                        logger.info(f"检测到扫描件PDF: {pdf_path.name} (置信度: 中)")
+                    else:
+                        detected_type = 'unknown'
+                        logger.info(f"PDF类型未知: {pdf_path.name} (建议使用--detect-type详细分析)")
+                    
+                    return detected_type
                     
         except Exception as e:
             logger.warning(f"PDF类型检测失败: {e}")
-            return 'unknown'
+            return 'unknown' if not detailed else {'error': str(e), 'detected_type': 'unknown'}
     
-    def extract_page_text(self, pdf_path, page_num):
+    def extract_page_text(self, pdf_path, page_num, use_preprocessing=True):
         """
-        提取页面文本（智能选择方法）
+        提取页面文本（智能选择方法，改进版本）
         
         Args:
             pdf_path: PDF文件路径
             page_num: 页面编号
+            use_preprocessing: 是否使用图像预处理
             
         Returns:
             str: 提取的文本
@@ -112,14 +170,28 @@ class PDFSplitterV2:
                     page = pdf_reader.pages[page_num]
                     text = page.extract_text()
                     if text and len(text.strip()) > 5:
+                        logger.debug(f"直接提取第 {page_num + 1} 页文本: {len(text.strip())} 字符")
                         return text.strip()
             
             # 如果直接提取失败且启用了OCR，使用OCR
             if self.use_ocr:
-                logger.debug(f"使用OCR提取第 {page_num + 1} 页文本")
-                ocr_text = self.ocr_processor.extract_text_from_page(pdf_path, page_num)
+                logger.info(f"使用OCR提取第 {page_num + 1} 页文本")
+                
+                # 使用改进的OCR提取（带预处理）
+                if hasattr(self.ocr_processor, 'extract_text_with_preprocessing'):
+                    ocr_text = self.ocr_processor.extract_text_with_preprocessing(pdf_path, page_num)
+                else:
+                    # 回退到基础OCR
+                    ocr_text = self.ocr_processor.extract_text_from_page(pdf_path, page_num)
+                
+                if ocr_text:
+                    logger.info(f"OCR提取成功: {len(ocr_text)} 字符")
+                else:
+                    logger.warning(f"OCR提取失败或文本为空")
+                
                 return ocr_text
             
+            logger.debug(f"第 {page_num + 1} 页无文本内容")
             return ""
             
         except Exception as e:
@@ -339,6 +411,8 @@ def main():
                        help='运行OCR功能测试')
     parser.add_argument('--detect-type', action='store_true',
                        help='检测PDF类型')
+    parser.add_argument('--detailed', action='store_true',
+                       help='详细分析模式')
     
     args = parser.parse_args()
     
@@ -367,8 +441,69 @@ def main():
     
     # PDF类型检测模式
     if args.detect_type:
-        pdf_type = splitter.detect_pdf_type(args.input)
-        logger.info(f"PDF类型检测结果: {pdf_type}")
+        if args.detailed:
+            # 详细分析模式
+            analysis = splitter.detect_pdf_type(args.input, detailed=True)
+            
+            if isinstance(analysis, dict):
+                logger.info("\n📊 详细PDF分析报告:")
+                logger.info("=" * 50)
+                
+                # 基本信息
+                logger.info(f"文件名称: {analysis.get('pdf_name', '未知')}")
+                logger.info(f"总页数: {analysis.get('total_pages', 0)}")
+                logger.info(f"采样页数: {analysis.get('sampled_pages', 0)}")
+                
+                # 文本分析
+                logger.info(f"\n📝 文本分析:")
+                logger.info(f"  文本页面比例: {analysis.get('text_page_ratio', 0):.1%}")
+                logger.info(f"  平均文本长度: {analysis.get('avg_text_per_page', 0):.0f} 字符")
+                logger.info(f"  是否为文本PDF: {'是' if analysis.get('is_text_pdf', False) else '否'}")
+                
+                # 扫描件分析
+                scanned_analysis = analysis.get('scanned_analysis', {})
+                if scanned_analysis:
+                    logger.info(f"\n🖨️  扫描件分析:")
+                    logger.info(f"  扫描件概率: {scanned_analysis.get('is_scanned_probability', 0):.1%}")
+                    
+                    metrics = scanned_analysis.get('detection_metrics', {})
+                    if metrics:
+                        logger.info(f"  检测指标:")
+                        for metric, value in metrics.items():
+                            logger.info(f"    {metric}: {value:.3f}")
+                    
+                    logger.info(f"  建议: {scanned_analysis.get('recommendation', '')}")
+                
+                # 综合结论
+                logger.info(f"\n🎯 综合结论:")
+                logger.info(f"  检测类型: {analysis.get('detected_type', '未知')}")
+                logger.info(f"  置信度: {analysis.get('confidence', '低')}")
+                
+                logger.info("=" * 50)
+                
+                # 操作建议
+                detected_type = analysis.get('detected_type', '')
+                if 'text' in detected_type:
+                    logger.info("\n💡 操作建议: 可直接使用基础拆分模式")
+                elif 'scanned' in detected_type:
+                    logger.info("\n💡 操作建议: 建议使用OCR模式 (添加 --ocr 参数)")
+                else:
+                    logger.info("\n💡 操作建议: 建议先测试OCR功能 (添加 --ocr-test 参数)")
+            else:
+                logger.info(f"PDF类型: {analysis}")
+        else:
+            # 简单检测模式
+            pdf_type = splitter.detect_pdf_type(args.input)
+            logger.info(f"PDF类型检测结果: {pdf_type}")
+            
+            # 简单建议
+            if pdf_type == 'text':
+                logger.info("💡 建议: 可直接使用基础拆分模式")
+            elif pdf_type == 'scanned':
+                logger.info("💡 建议: 使用OCR模式处理 (添加 --ocr 参数)")
+            else:
+                logger.info("💡 建议: 使用详细分析模式 (添加 --detailed 参数)")
+        
         return 0
     
     # 执行拆分
