@@ -1,0 +1,17 @@
+# PDF章节拆分工具依赖 - 基础版本 + OCR支持
+
+# 核心PDF处理
+PyPDF2>=3.0.0
+
+# OCR扫描件支持 (Sprint 2)
+pytesseract>=0.3.10
+pdf2image>=1.16.3
+Pillow>=10.0.0
+opencv-python>=4.8.0  # 可选，用于高级图像处理
+
+# 进度显示
+tqdm>=4.65.0
+
+# 基础工具
+python-dateutil>=2.8.0
+numpy>=1.24.0  # OCR预处理需要

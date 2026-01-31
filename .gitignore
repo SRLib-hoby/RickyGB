@@ -44,12 +44,78 @@ Thumbs.db
 markdown_output/
 sample_data/
 test_output/
+batch_output/
+test_batch_input/
+test_batch_integration_output/
+test_batch_output/
+test_pdf_files/
+
+# PDF processing outputs
+pdf_chapters/
+ocr_output/
+processed_pdfs/
+
+# Markdown合并输出
+sample_markdown/
+test_markdown_merge/
+merged_*.md
+test_merged.md
+
+# EPUB转换输出
+test_epub_files/
+test_epub_structure/
+test_text_extraction_output/
+epub_output/
+test_epub_output/
 
 # Logs
 *.log
+logs/
 
 # Temporary files
 *.tmp
 *.temp
-opt/
-source/
+
+# Memory files (personal workspace)
+memory/
+MEMORY.md
+
+# Virtual environment
+venv/
+.env
+.venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

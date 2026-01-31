@@ -1,0 +1,19 @@
+# EPUB转Markdown工具依赖
+
+# EPUB解析
+ebooklib>=0.18
+lxml>=4.9.0
+
+# HTML解析和转换
+beautifulsoup4>=4.12.0
+html2text>=2020.1.16
+markdownify>=0.11.0
+
+# 图片处理（可选）
+Pillow>=10.0.0
+
+# 进度显示
+tqdm>=4.65.0
+
+# 工具库
+python-dateutil>=2.8.0
