@@ -49,6 +49,8 @@ test_batch_input/
 test_batch_integration_output/
 test_batch_output/
 test_pdf_files/
+opt/
+source/
 
 # PDF processing outputs
 pdf_chapters/
