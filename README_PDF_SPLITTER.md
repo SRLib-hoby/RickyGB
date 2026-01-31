@@ -149,27 +149,74 @@ chmod 755 output_dir
 - **"需要安装PyPDF2库"**: 安装依赖包
 - **"PDF文件没有页面"**: PDF文件可能损坏
 
-## 🔄 开发路线图
+## 🔄 开发路线图 (Scrum方式完成)
 
-### Sprint 1 (已完成)
-- ✅ 基础PDF拆分功能
-- ✅ 大文件流式处理
-- ✅ 命令行接口
+### Sprint 1: 基础PDF拆分功能 ✅
+- ✅ 基础PDF拆分（按固定页数）
+- ✅ 大文件流式处理（避免内存溢出）
+- ✅ 命令行接口和基本错误处理
+- **文件**: `pdf_chapter_splitter_v1.py`
 
-### Sprint 2 (计划中)
-- 🔄 OCR扫描件支持
-- 🔄 图像预处理
-- 🔄 多语言OCR
+### Sprint 2.1: OCR基础集成 ✅
+- ✅ OCR模块创建 (`pdf_ocr_module.py`)
+- ✅ PDF类型检测功能
+- ✅ OCR命令行集成
+- **文件**: `pdf_chapter_splitter_v2.py`
 
-### Sprint 3 (计划中)
-- 🔄 智能章节检测
-- 🔄 标题识别算法
-- 🔄 内容分析
+### Sprint 2.2: 扫描件检测改进 ✅
+- ✅ 改进的扫描件检测算法
+- ✅ 基础图像预处理
+- ✅ 详细PDF分析报告
+- ✅ 智能操作建议
+- **文件**: 更新 `pdf_ocr_module.py` 和 `pdf_chapter_splitter_v2.py`
 
-### Sprint 4 (计划中)
-- 🔄 批量处理
-- 🔄 配置系统
-- 🔄 性能优化
+### Sprint 2.3: 完整OCR处理流程 ✅
+- ✅ OCR完整处理器 (`pdf_ocr_processor.py`)
+- ✅ 端到端OCR处理流程
+- ✅ 智能模式选择（文本/扫描件）
+- ✅ 完整的最终版本工具
+- **文件**: `pdf_chapter_splitter_final.py`
+
+## 🚀 可用工具版本
+
+### 1. 基础版本 (Sprint 1)
+```bash
+python pdf_chapter_splitter_v1.py -i input.pdf -o output_dir
+```
+- 基础PDF拆分功能
+- 大文件流式处理
+- 简单易用
+
+### 2. OCR集成版本 (Sprint 2.1-2.2)
+```bash
+# 检测PDF类型
+python pdf_chapter_splitter_v2.py -i input.pdf --detect-type --detailed
+
+# 启用OCR处理
+python pdf_chapter_splitter_v2.py -i scanned.pdf -o output --ocr
+
+# 测试OCR功能
+python pdf_chapter_splitter_v2.py -i test.pdf --ocr-test --ocr
+```
+- OCR基础集成
+- 详细PDF分析
+- 图像预处理
+
+### 3. 最终版本 (Sprint 2.3)
+```bash
+# 智能处理（自动检测类型）
+python pdf_chapter_splitter_final.py -i input.pdf -o output
+
+# 强制OCR模式
+python pdf_chapter_splitter_final.py -i document.pdf -o output --ocr --force-ocr
+
+# 完整工作流程
+python pdf_chapter_splitter_final.py -i scanned.pdf -o output --ocr --ocr-lang eng+chi_sim
+```
+- 完整OCR处理流程
+- 智能模式选择
+- 详细处理报告
+- 批量处理支持
 
 ## 📝 使用示例
 

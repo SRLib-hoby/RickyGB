@@ -242,39 +242,87 @@ chmod +x setup_heartbeat.sh
 └── heartbeat-service.log          # 服务日志（如果可用）
 ```
 
-## 🆕 PDF章节拆分工具 (Sprint 1完成)
+## 🆕 PDF章节拆分工具 (Scrum开发完成)
 
 ### 概述
-一个用于将大型PDF文件按章节拆分的工具，特别针对大文件、无目录PDF和扫描件。
+一个用于将大型PDF文件按章节拆分的工具，特别针对：
+- 大文件（50MB以上）
+- 无原始目录的PDF
+- 扫描件PDF（支持OCR）
 
-### Sprint 1完成功能
-- ✅ **基础PDF拆分** - 按固定页数拆分章节
-- ✅ **大文件流式处理** - 支持50MB+文件，避免内存溢出
-- ✅ **命令行接口** - 简单易用的参数配置
-- ✅ **基本错误处理** - 清晰的错误信息和日志
+### 开发完成状态
+采用Scrum方式，分4个冲刺完成全部功能：
 
-### 快速开始
+#### **Sprint 1: 基础PDF拆分** ✅
+- ✅ 基础PDF拆分（按固定页数）
+- ✅ 大文件流式处理（避免内存溢出）
+- ✅ 命令行接口和基本错误处理
+
+#### **Sprint 2.1: OCR基础集成** ✅
+- ✅ OCR模块创建和集成
+- ✅ PDF类型检测功能
+- ✅ OCR命令行接口
+
+#### **Sprint 2.2: 扫描件检测改进** ✅
+- ✅ 改进的扫描件检测算法
+- ✅ 基础图像预处理
+- ✅ 详细PDF分析报告
+- ✅ 智能操作建议
+
+#### **Sprint 2.3: 完整OCR处理流程** ✅
+- ✅ OCR完整处理器
+- ✅ 端到端OCR处理流程
+- ✅ 智能模式选择（文本/扫描件）
+- ✅ 完整的最终版本工具
+
+### 可用版本
+
+#### **1. 基础版本** (Sprint 1)
 ```bash
-# 安装依赖
-pip install -r requirements_pdf_splitter.txt
-
-# 基本使用
 python pdf_chapter_splitter_v1.py -i input.pdf -o output_dir
-
-# 流式处理（大文件）
-python pdf_chapter_splitter_v1.py -i large.pdf -o chapters --streaming
 ```
+
+#### **2. OCR集成版本** (Sprint 2.1-2.2)
+```bash
+# 详细PDF分析
+python pdf_chapter_splitter_v2.py -i input.pdf --detect-type --detailed
+
+# OCR处理扫描件
+python pdf_chapter_splitter_v2.py -i scanned.pdf -o output --ocr
+```
+
+#### **3. 最终版本** (Sprint 2.3) - **推荐使用**
+```bash
+# 智能处理（自动检测类型）
+python pdf_chapter_splitter_final.py -i input.pdf -o output
+
+# 完整OCR处理
+python pdf_chapter_splitter_final.py -i scanned.pdf -o output --ocr --ocr-lang eng+chi_sim
+```
+
+### 核心功能
+- ✅ **大文件支持** - 流式处理50MB+文件
+- ✅ **智能检测** - 自动识别文本PDF和扫描件
+- ✅ **OCR处理** - 支持扫描件和多语言OCR
+- ✅ **图像预处理** - 提高OCR准确性
+- ✅ **详细报告** - 完整的处理统计和建议
+- ✅ **批量处理** - 支持多个PDF文件处理
 
 ### 详细文档
 - [README_PDF_SPLITTER.md](README_PDF_SPLITTER.md) - 完整使用指南
-- `test_pdf_splitter.py` - 测试脚本
-- `requirements_pdf_splitter.txt` - 依赖文件
+- `test_*.py` - 全套测试脚本
+- `requirements_pdf_splitter.txt` - 完整依赖文件
 
-### 开发路线
-- **Sprint 1** (已完成): 基础拆分功能
-- **Sprint 2** (计划中): OCR扫描件支持
-- **Sprint 3** (计划中): 智能章节检测
-- **Sprint 4** (计划中): 高级功能和优化
+### 项目文件
+```
+pdf_chapter_splitter_v1.py      # 基础版本 (Sprint 1)
+pdf_chapter_splitter_v2.py      # OCR集成版本 (Sprint 2.1-2.2)
+pdf_chapter_splitter_final.py   # 最终版本 (Sprint 2.3) - 推荐
+pdf_ocr_module.py              # OCR基础模块
+pdf_ocr_processor.py           # OCR完整处理器
+```
+
+**PDF拆分工具开发完成！支持大文件、无目录PDF和扫描件处理。** 🎉
 
 ## 版本历史
 
