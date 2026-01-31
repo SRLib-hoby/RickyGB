@@ -54,6 +54,12 @@ pdf_chapters/
 ocr_output/
 processed_pdfs/
 
+# Markdown合并输出
+sample_markdown/
+test_markdown_merge/
+merged_*.md
+test_merged.md
+
 # Logs
 *.log
 logs/
